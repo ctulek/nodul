@@ -12,19 +12,121 @@ var register = function(match, handler) {
 exports.register = register;
 
 var handle = function(req, res) {
-  for(var i = 0; i < handlers.length; i++) {
+  var chain = [];
+  for(var i = 0, j = 0; i < handlers.length; i++) {
     var handler = handlers[i];
     if(handler.m(req)) {
-      handler.h.apply(null,[req,res]);
-      return;
+      chain[j] = handler.h;
+      j++;
     }
   }
-  // Nothing matches. End the response.
-  res.writeHead(404);
-  res.end();
+  handleChain(chain, req, res, 0);
+}
+
+var handleChain = function(chain, req, res, index) {
+  if(index == chain.length) {
+    res.end();
+    return;
+  }
+  var thisObject = {};
+  thisObject.req = req;
+  thisObject.res = res;
+  thisObject.iamdone = function() {
+    handleChain(chain, req, res, index + 1);
+  }
+  chain[index].apply(thisObject, [req, res]);
 }
 
 exports.handle = handle;
+
+// PATTERN
+var pattern = function(pattern, handlerFunc) {
+  pattern = getRegExpFunctionForPattern(pattern);
+  if(pattern == null) {
+    return;
+  }
+  matcher = function(req) {
+    return pattern.apply(null,[req]) != false;
+  }
+  var handler = function(req, res) {
+    var param_values = getParameterValuesFromUrl(req.url, handlerFunc);
+    handlerFunc.apply(this, param_values);
+  }
+  register(matcher, handler);
+}
+
+exports.pattern = pattern;
+
+var module = function(pattern, modulePath) {
+  pattern = getRegExpFunctionForPattern(pattern + "*");
+  if(pattern == null) {
+    return;
+  }
+  var module = require(modulePath);
+  var handlerFunc = function() {
+    module.req = this.req;
+    module.res = this.res;
+    module.iamdone = this.iamdone;
+    var parsed = Url.parse(this.req.url);
+    var pat = pattern.apply(null, [this.req]);
+    var regexRes = pat.exec(parsed.pathname.substr(1));
+    var funcName = regexRes[0].substr(regexRes[0].lastIndexOf("/") + 1);
+    console.log(pat.lastIndex + " " + funcName);
+    var param_values = getParameterValuesFromUrl(this.req.url, module[funcName]);
+    module[funcName].apply(module,param_values);
+  }
+  this.pattern(pattern, handlerFunc);
+}
+
+exports.module = module;
+
+var getRegExpFunctionForPattern = function(pattern) {
+  var type = typeof(pattern);
+  if(type == "number") {
+    pattern = "" + pattern;
+  }
+  if(type == "string") {
+    pattern = new RegExp("^"+pattern.replace(/\*/g,".+?")+"$");
+  }
+  if(pattern instanceof RegExp) {
+    return function(req) {
+      var parsed = Url.parse(req.url);
+      console.log(parsed.pathname);
+      return pattern.test(parsed.pathname.substr(1));
+    };
+  } else if(type == "function"){
+      return pattern;  
+  } else {
+    console.log("Invalid pattern: " + pattern);
+    return null;
+  }
+}
+
+var getParameterValuesFromUrl = function(url, func) {
+  var parameters = getFunctionParameterList(func);
+  var parsed = Url.parse(url, true);
+  var param_values = [];
+  if(parsed.query) {
+    for(i in parameters) {
+      param_values[i] = parsed.query[parameters[i]];
+    }
+  }
+  return param_values;
+}
+
+// Inspired from http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
+var getFunctionParameterList = function(func) {
+  var funcParamReg = /\(([\s\S]*?)\)/;
+  var params = funcParamReg.exec(func);
+  var param_names = [];
+  if (params) {
+     param_names = params[1].split(',');
+  }
+  for(i in param_names) {
+    param_names[i] = param_names[i].trim();
+  }
+  return param_names;
+}
 
 var static = function(url, path) {
   try {
@@ -109,90 +211,3 @@ var streamStaticFile = function(path, req, res) {
   });
 }
 
-var pattern = function(pattern, handlerFunc) {
-  pattern = getRegExpFunctionForPattern(pattern);
-  if(pattern == null) {
-    return;
-  }
-  matcher = function(req) {
-    return pattern.apply(null,[req]) != false;
-  }
-  var handler = function(req, res) {
-    var param_values = getParameterValuesFromUrl(req.url, handlerFunc);
-    handlerFunc.apply({req:req,res:res}, param_values);
-  }
-  register(matcher, handler);
-}
-
-exports.pattern = pattern;
-
-var module = function(pattern, modulePath) {
-  pattern = getRegExpFunctionForPattern(pattern + "*");
-  if(pattern == null) {
-    return;
-  }
-  var module = require(modulePath);
-  var handlerFunc = function() {
-    module.req = this.req;
-    module.res = this.res;
-    var parsed = Url.parse(this.req.url);
-    var pat = pattern.apply(null, [this.req]);
-    var regexRes = pat.exec(parsed.pathname.substr(1));
-    var funcName = regexRes[0].substr(regexRes[0].lastIndexOf("/") + 1);
-    console.log(pat.lastIndex + " " + funcName);
-    var param_values = getParameterValuesFromUrl(this.req.url, module[funcName]);
-    module[funcName].apply(module,param_values);
-  }
-  this.pattern(pattern, handlerFunc);
-}
-
-exports.module = module;
-
-var getRegExpFunctionForPattern = function(pattern) {
-  var type = typeof(pattern);
-  if(type == "number") {
-    pattern = "" + pattern;
-  }
-  if(type == "string") {
-    pattern = new RegExp("^"+pattern.replace(/\*/g,".+?")+"$");
-  }
-  if(pattern instanceof RegExp) {
-    return function(req) {
-      var parsed = Url.parse(req.url);
-      var result = pattern.test(parsed.pathname.substr(1));
-      pattern.lastIndex = 0;
-      return result ? pattern : false;
-    };
-  } else if(type == "function"){
-      return pattern;  
-  } else {
-    console.log("Invalid pattern: " + pattern);
-    return null;
-  }
-}
-
-var getParameterValuesFromUrl = function(url, func) {
-  var parameters = getFunctionParameterList(func);
-  var parsed = Url.parse(url, true);
-  var param_values = [];
-  if(parsed.query) {
-    for(i in parameters) {
-      param_values[i] = parsed.query[parameters[i]];
-    }
-  }
-  return param_values;
-}
-
-// Inspired from http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
-var getFunctionParameterList = function(func) {
-  var funcParamReg = /\(([\s\S]*?)\)/;
-  var params = funcParamReg.exec(func);
-  var param_names = [];
-  if (params) {
-     param_names = params[1].split(',');
-  }
-  for(i in param_names) {
-    param_names[i] = param_names[i].trim();
-  }
-  return param_names;
-}

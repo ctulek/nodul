@@ -20,12 +20,25 @@ handler.static("/main.js",config.get("server.root") + "/src/main.js");
 handler.static("/src",config.get("server.root") + "/src");
 
 
-handler.pattern("*/aaa/*", function(a, b) {
+handler.pattern("aaa", function() {
+  console.log("func1");
   this.res.writeHead(200);
-  this.res.write("AAA");
-  this.res.write("A: " + a);
-  this.res.write("B: " + b);
-  this.res.end();
+  this.res.write("FUNC1");
+  this.res.write("A: ");
+  this.res.write("B: ");
+  var thisObject = this; // This is ugly find a better way
+  setTimeout(function() {
+    thisObject.iamdone();  
+  }, 5000);
+  
+});
+
+handler.pattern("aaa", function() {
+  console.log("func2");
+  this.res.write("FUNC2");
+  this.res.write("A: ");
+  this.res.write("B: ");
+  this.iamdone();
 });
 
 handler.module("bbb","./deneme");
