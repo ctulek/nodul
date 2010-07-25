@@ -1,6 +1,7 @@
 var Url = require('url');
 var FS = require('fs');
 var Sys = require('sys');
+var Script = process.binding('evals').Script;
 
 var handlers = [];
 var handlerIndex = 0;
@@ -26,6 +27,7 @@ var handle = function(req, res) {
 
 var handleChain = function(chain, req, res, index) {
   if(index == chain.length) {
+    res.writeHead(200);
     res.end();
     return;
   }
@@ -58,20 +60,51 @@ var pattern = function(pattern, handlerFunc) {
 
 exports.pattern = pattern;
 
+var modules = {};
+
 var module = function(pattern, modulePath) {
   var functionNamePattern = getRegExpFunctionForModulePattern(pattern);
   pattern = getRegExpFunctionForPattern(pattern + "*");
   if(pattern == null) {
     return;
   }
-  var module = require(modulePath);
+  modules[modulePath] = new Script(FS.readFileSync(modulePath));  
+  
+  FS.watchFile(modulePath, function(curr, prev) {
+    if(curr.size + "" != prev.size + "" || curr.mtime + "" != prev.mtime + "" || curr.ctime + "" != prev.ctime + "") {
+      console.log("Reloading the module " + modulePath);
+      try {
+        var newModule = new Script(FS.readFileSync(modulePath));
+        modules[modulePath] = newModule;
+      } catch (err) {
+        Sys.log(modulePath + " has returned an error. Continuing to use the old module code. Error is:");
+        Sys.log(err);
+      }
+    }
+  });
   var handlerFunc = function() {
-    module.req = this.req;
-    module.res = this.res;
-    module.iamdone = this.iamdone;
-    var funcName = functionNamePattern(this.req);
-    var param_values = getParameterValuesFromUrl(this.req.url, module[funcName]);
-    module[funcName].apply(module,param_values);
+    var module = modules[modulePath];
+    var func = functionNamePattern(this.req);
+    var req = this.req;
+    var res = this.res;
+    var sandbox = {
+      req: req,
+      res: res,
+      iamdone: this.iamdone,
+      exec: function(module) {
+        var params = getParameterValuesFromUrl(req.url, module[func]);
+        module[func].apply(module,params);
+      },
+      require: require
+    };
+    console.log("Module handler for " + modulePath);
+    try {
+      module.runInNewContext(sandbox);
+    } catch (err) {
+      Sys.log(modulePath + " throw an error");
+      Sys.log(err);
+      res.end();
+    }
   }
   this.pattern(pattern, handlerFunc);
 }
@@ -89,7 +122,7 @@ var getRegExpFunctionForPattern = function(pattern) {
   if(pattern instanceof RegExp) {
     return function(req) {
       var parsed = Url.parse(req.url);
-      console.log("Checking " + parsed.pathname + " against " + pattern.source);
+      //console.log("Checking " + parsed.pathname + " against " + pattern.source);
       return pattern.test(parsed.pathname);
     };
   } else if(type == "function"){

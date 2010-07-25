@@ -26,11 +26,7 @@ handler.pattern("/aaa", function() {
   this.res.write("FUNC1");
   this.res.write("A: ");
   this.res.write("B: ");
-  var thisObject = this; // This is ugly find a better way
-  setTimeout(function() {
-    thisObject.iamdone();  
-  }, 5000);
-  
+  this.iamdone();
 });
 
 handler.pattern("/aaa", function() {
@@ -41,4 +37,4 @@ handler.pattern("/aaa", function() {
   this.iamdone();
 });
 
-handler.module("/bbb","./deneme");
+handler.module("/bbb","./src/test.js");
