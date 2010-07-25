@@ -1,5 +1,6 @@
 var Url = require('url');
 var FS = require('fs');
+var Sys = require('sys');
 
 var handlers = [];
 var handlerIndex = 0;
@@ -58,6 +59,7 @@ var pattern = function(pattern, handlerFunc) {
 exports.pattern = pattern;
 
 var module = function(pattern, modulePath) {
+  var functionNamePattern = getRegExpFunctionForModulePattern(pattern);
   pattern = getRegExpFunctionForPattern(pattern + "*");
   if(pattern == null) {
     return;
@@ -67,11 +69,7 @@ var module = function(pattern, modulePath) {
     module.req = this.req;
     module.res = this.res;
     module.iamdone = this.iamdone;
-    var parsed = Url.parse(this.req.url);
-    var pat = pattern.apply(null, [this.req]);
-    var regexRes = pat.exec(parsed.pathname.substr(1));
-    var funcName = regexRes[0].substr(regexRes[0].lastIndexOf("/") + 1);
-    console.log(pat.lastIndex + " " + funcName);
+    var funcName = functionNamePattern(this.req);
     var param_values = getParameterValuesFromUrl(this.req.url, module[funcName]);
     module[funcName].apply(module,param_values);
   }
@@ -91,8 +89,33 @@ var getRegExpFunctionForPattern = function(pattern) {
   if(pattern instanceof RegExp) {
     return function(req) {
       var parsed = Url.parse(req.url);
-      console.log(parsed.pathname);
-      return pattern.test(parsed.pathname.substr(1));
+      console.log("Checking " + parsed.pathname + " against " + pattern.source);
+      return pattern.test(parsed.pathname);
+    };
+  } else if(type == "function"){
+      return pattern;  
+  } else {
+    console.log("Invalid pattern: " + pattern);
+    return null;
+  }
+}
+
+var getRegExpFunctionForModulePattern = function(pattern) {
+  var type = typeof(pattern);
+  if(type == "number") {
+    pattern = "" + pattern;
+  }
+  if(type == "string") {
+    pattern = new RegExp("^"+pattern.replace(/\*/g,".+?"));
+  }
+  if(pattern instanceof RegExp) {
+    return function(req) {
+      var parsed = Url.parse(req.url);
+      var temp = pattern.exec(parsed.pathname);
+      var lastIndex = temp[0].length;
+      var reg = new RegExp("/([^/]+)");
+      var result = reg.exec(parsed.pathname.substr(lastIndex));
+      return result[1];
     };
   } else if(type == "function"){
       return pattern;  
@@ -114,7 +137,7 @@ var getParameterValuesFromUrl = function(url, func) {
   return param_values;
 }
 
-// Inspired from http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
+// Inspired by http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
 var getFunctionParameterList = function(func) {
   var funcParamReg = /\(([\s\S]*?)\)/;
   var params = funcParamReg.exec(func);
