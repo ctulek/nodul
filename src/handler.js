@@ -22,22 +22,21 @@ var handle = function(req, res) {
       j++;
     }
   }
-  handleChain(chain, req, res, 0);
+  if(chain.length > 0) {
+    handleChain(chain, req, res, 0);
+  }
 }
 
 var handleChain = function(chain, req, res, index) {
   if(index == chain.length) {
-    res.writeHead(200);
+    // End of chain
     res.end();
     return;
   }
-  var thisObject = {};
-  thisObject.req = req;
-  thisObject.res = res;
-  thisObject.iamdone = function() {
+  res.iamdone = function() {
     handleChain(chain, req, res, index + 1);
   }
-  chain[index].apply(thisObject, [req, res]);
+  chain[index].apply(null, [req, res]);
 }
 
 exports.handle = handle;
@@ -51,11 +50,7 @@ var pattern = function(pattern, handlerFunc) {
   matcher = function(req) {
     return pattern.apply(null,[req]) != false;
   }
-  var handler = function(req, res) {
-    var param_values = getParameterValuesFromUrl(req.url, handlerFunc);
-    handlerFunc.apply(this, param_values);
-  }
-  register(matcher, handler);
+  register(matcher, handlerFunc);
 }
 
 exports.pattern = pattern;
@@ -68,38 +63,36 @@ var module = function(pattern, modulePath) {
   if(pattern == null) {
     return;
   }
-  modules[modulePath] = new Script(FS.readFileSync(modulePath));  
+  var sandbox = {
+    exports:{},
+    require:require,
+    process:process
+  }
+  modules[modulePath] = {script: new Script(FS.readFileSync(modulePath)), sandbox:sandbox};
+  modules[modulePath].script.runInNewContext(sandbox);
   
   FS.watchFile(modulePath, function(curr, prev) {
     if(curr.size + "" != prev.size + "" || curr.mtime + "" != prev.mtime + "" || curr.ctime + "" != prev.ctime + "") {
       console.log("Reloading the module " + modulePath);
       try {
         var newModule = new Script(FS.readFileSync(modulePath));
-        modules[modulePath] = newModule;
+        modules[modulePath].script = newModule;
+        var sandbox = modules[modulePath].sandbox;
+        sandbox.exports = {};
+        modules[modulePath].script.runInNewContext(sandbox);
       } catch (err) {
         Sys.log(modulePath + " has returned an error. Continuing to use the old module code. Error is:");
         Sys.log(err);
       }
     }
   });
-  var handlerFunc = function() {
-    var module = modules[modulePath];
-    var func = functionNamePattern(this.req);
-    var req = this.req;
-    var res = this.res;
-    var sandbox = {
-      req: req,
-      res: res,
-      iamdone: this.iamdone,
-      exec: function(module) {
-        var params = getParameterValuesFromUrl(req.url, module[func]);
-        module[func].apply(module,params);
-      },
-      require: require
-    };
+  var handlerFunc = function(req, res) {
     console.log("Module handler for " + modulePath);
+    var module = modules[modulePath].script;    
+    var sandbox = modules[modulePath].sandbox;
     try {
-      module.runInNewContext(sandbox);
+      var func = functionNamePattern(req);
+      sandbox.exports[func].apply(sandbox,[req, res]);
     } catch (err) {
       Sys.log(modulePath + " throw an error");
       Sys.log(err);
@@ -170,6 +163,7 @@ var getParameterValuesFromUrl = function(url, func) {
   return param_values;
 }
 
+// NOT USED ANYMORE
 // Inspired by http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
 var getFunctionParameterList = function(func) {
   var funcParamReg = /\(([\s\S]*?)\)/;

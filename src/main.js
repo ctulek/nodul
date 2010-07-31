@@ -20,21 +20,21 @@ handler.static("/main.js",config.get("server.root") + "/src/main.js");
 handler.static("/src",config.get("server.root") + "/src");
 
 
-handler.pattern("/aaa", function() {
+handler.pattern("/aaa", function(req, res) {
   console.log("func1");
-  this.res.writeHead(200);
-  this.res.write("FUNC1");
-  this.res.write("A: ");
-  this.res.write("B: ");
-  this.iamdone();
+  res.writeHead(200);
+  res.write("FUNC1");
+  res.write("A: ");
+  res.write("B: ");
+  res.iamdone();
 });
 
-handler.pattern("/aaa", function() {
+handler.pattern("/aaa", function(req, res) {
   console.log("func2");
-  this.res.write("FUNC2");
-  this.res.write("A: ");
-  this.res.write("B: ");
-  this.iamdone();
+  res.write("FUNC2");
+  res.write("A: ");
+  res.write("B: ");
+  res.iamdone();
 });
 
 handler.module("/bbb","./src/test.js");

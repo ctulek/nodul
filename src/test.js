@@ -1,22 +1,22 @@
 var sys = require('sys');
 var fs = require('fs');
 
-var module = {};
 
-module.func1 = function(a, b) {
-  sys.log(sys.inspect(this));
+exports.func1 = function(req, res) {
   res.writeHead(200);
-  res.write("A: " + a + "<br/>\n");
-  res.write("B: " + b + "<br/>\n");
-  res.write("Test\n");
-  sys.log("Test");
-  iamdone();
+  res.write("OK1\n");
+  //sys.log(sys.inspect(req));
+  //sys.log(sys.inspect(res));
+  res.write(func3());
+  res.iamdone();
 }
 
-module.func2 = function(a) {
-  res.writeHead(200);
-  res.write("HELLO " + a + "\n");
-  iamdone();
+exports.func2 = function(req, res) {
+  res.write("OK2");
+  res.iamdone();
 }
 
-exec(module);
+var func3 = function() {
+  return "TEST\n";
+}
+
