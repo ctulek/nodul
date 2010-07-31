@@ -17,6 +17,6 @@ exports.func2 = function(req, res) {
 }
 
 var func3 = function() {
-  return "TEST\n";
+  return "TEST123\n";
 }
 

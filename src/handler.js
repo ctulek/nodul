@@ -36,7 +36,9 @@ var handleChain = function(chain, req, res, index) {
   res.iamdone = function() {
     handleChain(chain, req, res, index + 1);
   }
-  chain[index].apply(null, [req, res]);
+  process.nextTick(function() {
+    chain[index].apply(null, [req, res]);
+  });
 }
 
 exports.handle = handle;
