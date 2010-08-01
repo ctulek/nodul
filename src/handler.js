@@ -3,6 +3,8 @@ var FS = require('fs');
 var Sys = require('sys');
 var Script = process.binding('evals').Script;
 
+var Enrich = require('./enrich');
+
 var handlers = [];
 var handlerIndex = 0;
 
@@ -23,6 +25,8 @@ var handle = function(req, res) {
     }
   }
   if(chain.length > 0) {
+    req = Enrich.request(req);
+    res = Enrich.response(res);
     handleChain(chain, req, res, 0);
   }
 }
@@ -30,7 +34,8 @@ var handle = function(req, res) {
 var handleChain = function(chain, req, res, index) {
   if(index == chain.length) {
     // End of chain
-    res.end();
+    console.log("End of chain");
+    res.finish();
     return;
   }
   res.iamdone = function() {
@@ -68,7 +73,8 @@ var module = function(pattern, modulePath) {
   var sandbox = {
     exports:{},
     require:require,
-    process:process
+    process:process,
+    console:console
   }
   modules[modulePath] = {script: new Script(FS.readFileSync(modulePath)), sandbox:sandbox};
   modules[modulePath].script.runInNewContext(sandbox);
