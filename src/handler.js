@@ -3,7 +3,7 @@ var FS = require('fs');
 var Sys = require('sys');
 var Script = process.binding('evals').Script;
 
-var Enrich = require('./enrich');
+  var Enrich = require('enrich');
 
 var handlers = [];
 var handlerIndex = 0;

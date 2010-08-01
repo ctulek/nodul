@@ -1,8 +1,8 @@
 var sys = require('sys'),
    http = require('http');
 
-var config = require('./config');
-var handler = require('./handler');
+var config = require('config');
+var handler = require('handler');
 
 port = 8080;
 if(process.argv[2]) {
@@ -16,9 +16,8 @@ sys.puts('Server running at http://127.0.0.1:'+port+'/');
 
 config.set("messages.404","Not Found!");
 
-handler.static("/main.js",config.get("server.root") + "/src/main.js");
-handler.static("/src",config.get("server.root") + "/src");
-
+handler.static("/main.js",config.get("server.root") + "/examples/test/main.js");
+handler.static("/src",config.get("server.root") + "/examples/test");
 
 handler.pattern("/aaa", function(req, res) {
   console.log("func1");
@@ -37,4 +36,4 @@ handler.pattern("/aaa", function(req, res) {
   res.iamdone();
 });
 
-handler.module("/bbb","./src/test.js");
+handler.module("/bbb",__dirname + "/test.js");

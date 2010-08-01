@@ -1,0 +1,2 @@
+To run test example:
+sh run.sh examples/test/main.js

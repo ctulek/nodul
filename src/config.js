@@ -12,4 +12,4 @@ var set = function(key, val) {
 
 exports.set = set;
 
-set("server.root","/Users/cagdas/Projects/nodul");
+set("server.root",process.cwd());
