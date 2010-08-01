@@ -27,7 +27,13 @@ var handle = function(req, res) {
   if(chain.length > 0) {
     req = Enrich.request(req);
     res = Enrich.response(res);
-    handleChain(chain, req, res, 0);
+    if(req.method == "POST") {
+      req.addListener("end", function() {
+        handleChain(chain, req, res, 0);
+      });
+    } else {
+      handleChain(chain, req, res, 0);
+    }
   }
 }
 
@@ -171,21 +177,6 @@ var getParameterValuesFromUrl = function(url, func) {
   return param_values;
 }
 
-// NOT USED ANYMORE
-// Inspired by http://stackoverflow.com/questions/914968/inspect-the-names-values-of-arguments-in-the-definition-execution-of-a-javascript
-var getFunctionParameterList = function(func) {
-  var funcParamReg = /\(([\s\S]*?)\)/;
-  var params = funcParamReg.exec(func);
-  var param_names = [];
-  if (params) {
-     param_names = params[1].split(',');
-  }
-  for(i in param_names) {
-    param_names[i] = param_names[i].trim();
-  }
-  return param_names;
-}
-
 var static = function(url, path) {
   try {
     var stats = FS.statSync(path);
@@ -233,7 +224,7 @@ var static = function(url, path) {
 
 exports.static = static;
 
-// Inspired from antinode.
+// Inspired by antinode.
 var streamStaticFile = function(path, req, res) {
   try {
     console.log("Trying to open " + path);

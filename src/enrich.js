@@ -1,5 +1,6 @@
 var Url = require('url');
 var Sys = require('sys');
+var Query = require('querystring');
 
 exports.request = function(req) {
   req.parsed = Url.parse(req.url, true);
@@ -10,6 +11,22 @@ exports.request = function(req) {
     req.params[key] = req.parsed.query[key];
   }
 
+  req.raw = "";
+  if(req.method == "POST") {
+    req.on("data",function(chunk) {
+      req.raw += chunk;
+    });
+    req.on("end",function() {
+      if(req.headers['content-type'].match(/^application\/x-www-form-urlencoded/)) {
+        var params = Query.parse(req.raw);
+        for(var key in params) {
+          req.params[key] = params[key];
+        }
+      }
+      console.log(Sys.inspect(req));
+    });
+  }
+  
   //console.log(Sys.inspect(req));
   return req;
 }
