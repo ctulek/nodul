@@ -34,6 +34,9 @@ var handle = function(req, res) {
     } else {
       handleChain(chain, req, res, 0);
     }
+  } else {
+    res.writeHead(404);
+    res.end("404 not found");
   }
 }
 
