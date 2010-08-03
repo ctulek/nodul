@@ -4,7 +4,6 @@ var Query = require('querystring');
 
 exports.request = function(req) {
   req.parsed = Url.parse(req.url, true);
-  //console.log(Sys.inspect(req.parsed));
   
   req.params = {};
   for (var key in req.parsed.query) {
@@ -23,15 +22,20 @@ exports.request = function(req) {
           req.params[key] = params[key];
         }
       }
-      console.log(Sys.inspect(req));
     });
   }
+  
+  req.cookies = {};
+  if(req.headers['cookie'] != undefined) {
+    req.cookies = parseCookies(req.headers['cookie']);
+  }
+  console.log(Sys.inspect(req));
   
   //console.log(Sys.inspect(req));
   return req;
 }
 
-exports.response = function(res) {
+exports.response = function(req, res) {
   res.statusCode = 200;
   res.headers = {};
   res.header = function(header, value) {
@@ -49,17 +53,26 @@ exports.response = function(res) {
   res.__headersSent = false;
   res.__bodySent = false;
   res.__ended = false;
-  
   res.__sendHeaders = function() {
     if(res.__headersSent == false) {
       if(res.__bodySent == false) {
         res.header("Content-Length", res.body.length);
       }
+      
+      // Cookies
+      if(res.headers['Set-Cookie'] == undefined) {
+        var cookieStr = stringifyCookies(res.cookies);
+        if(cookieStr != "") {
+          res.header('Set-Cookie',cookieStr);
+        }
+      }
+      
       var headers = {};
       for(var key in res.headers) {
         // TODO: Support multi-value headers
         headers[key] = res.headers[key];
       }
+      
       res.writeHead(res.statusCode,headers);
       res.__headersSent = true;
     }
@@ -101,5 +114,50 @@ exports.response = function(res) {
     res.finish();
   }
   
+  res.cookies = {};
+  res.cookie = function(name, value, expires, path) {
+    var options = {};
+    if(typeof(expires) == "number") {
+      var d = new Date(Date.now() + expires * 1000);
+      options.expires = d.toUTCString();
+      console.log(options.expires);
+    } else if(typeof(expires) == "string"){
+      options.expires = expires;
+    }
+    if(path == null || path == undefined) {
+      path = "/";
+      options.path = path;
+    }
+    res.cookies[name] = {value:value,options:options};
+  }
+  
+  if(req.cookies['SESSIONID'] == undefined) {
+    res.cookie('SESSIONID',1,{path:'/'});
+  }
+  
   return res;
+}
+
+var parseCookies= function(cookieStr) {
+  var cookies = {};
+  var tokens = cookieStr.split(";");
+  for(var i in tokens) {
+    var pair = tokens[i].split("=");
+    cookies[pair[0]] = pair[1];
+  }
+  return cookies;
+}
+
+var stringifyCookies = function(cookies) {
+  var cookieStr = "";
+  for(var key in cookies) {
+    var cookie = cookies[key];
+    cookieStr += key + "=" + cookie.value + ";";
+    if(cookie.options != null) {
+      for(var name in cookie.options) {
+        cookieStr += name + "=" + cookie.options[name] + ";";
+      }
+    }
+  }
+  return cookieStr;
 }

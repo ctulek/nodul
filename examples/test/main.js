@@ -14,26 +14,24 @@ http.createServer(function (req, res) {
 }).listen(port, "127.0.0.1");
 sys.puts('Server running at http://127.0.0.1:'+port+'/');
 
-config.set("messages.404","Not Found!");
-
 handler.static("/main.js",config.get("server.root") + "/examples/test/main.js");
 handler.static("/src",config.get("server.root") + "/examples/test");
 
-handler.pattern("/aaa", function(req, res) {
-  console.log("func1");
-  res.writeHead(200);
-  res.write("FUNC1");
-  res.write("A: ");
-  res.write("B: ");
+handler.pattern("/helloworld", function(req, res) {
+  res.render("Hello");
   res.iamdone();
 });
 
-handler.pattern("/aaa", function(req, res) {
-  console.log("func2");
-  res.write("FUNC2");
-  res.write("A: ");
-  res.write("B: ");
+handler.pattern("/helloworld", function(req, res) {
+  res.render(" World!");
   res.iamdone();
 });
 
-handler.module("/bbb",__dirname + "/test.js");
+var counter = 0;
+handler.pattern("/counter", function(req, res) {
+  counter++;
+  res.render(counter);
+  res.iamdone();
+});
+
+handler.module("/test",__dirname + "/test.js");

@@ -26,7 +26,7 @@ var handle = function(req, res) {
   }
   if(chain.length > 0) {
     req = Enrich.request(req);
-    res = Enrich.response(res);
+    res = Enrich.response(req, res);
     if(req.method == "POST") {
       req.addListener("end", function() {
         handleChain(chain, req, res, 0);
