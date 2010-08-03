@@ -29,8 +29,6 @@ exports.request = function(req) {
   if(req.headers['cookie'] != undefined) {
     req.cookies = parseCookies(req.headers['cookie']);
   }
-  console.log(Sys.inspect(req));
-  
   //console.log(Sys.inspect(req));
   return req;
 }
@@ -120,7 +118,6 @@ exports.response = function(req, res) {
     if(typeof(expires) == "number") {
       var d = new Date(Date.now() + expires * 1000);
       options.expires = d.toUTCString();
-      console.log(options.expires);
     } else if(typeof(expires) == "string"){
       options.expires = expires;
     }
